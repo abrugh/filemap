@@ -1516,6 +1516,7 @@ class JobScheduler:
           shutil.rmtree(dst)
           # By removing this dst, we're invalidating any previously derived data, but our redo-if-newer-than logic will handle the compute.
 
+      print >> sys.stderr, "about to remove", p.outdirname , "/." , p.outbasename, "on pid", os.getpid()
       os.rename(p.outdirname + "/." + p.outbasename, dst)
       p.job.running -= 1 
      
@@ -2171,7 +2172,8 @@ and the program re-run.
       """Concatenate one or more files to stdout."""
       (options, args) = MethodOptionParser(fixed=["files..."]).parse_args(args)
 
-      self._Locations().pickHosts().forAll(["cat"], args)
+      #self.get(["-c"] + args)
+      procs = self._Locations().forAll(["cat"], args)
       (pcount, rprocs) = procs.collect(ignoreErrors=True)
 
       for f in rprocs:
@@ -2182,7 +2184,6 @@ and the program re-run.
       (options, args) = MethodOptionParser(fixed=["[infile [outfile]]"]).parse_args(args)
       infile = ".fm.stats"
       pngfile = "fmstats.png"
-
       if args:
          infile = args[0]
       else:
