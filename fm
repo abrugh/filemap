@@ -16,6 +16,7 @@
 # software.
 #
 # Author: Mike Fisk <mfisk@lanl.gov>
+# Other Guy: Alex Brugh <abrugh@lanl.gov>
 #
 
 import ConfigParser
