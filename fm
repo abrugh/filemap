@@ -1639,10 +1639,14 @@ class FmJob:
             # Don't process .d directories as named inputs (feedback loop)
             continue
 
-         bname = os.path.basename(i)
-
          relativename = i[len(options.rootdir):]
-         outfilename = relativename + ".d/" + escape(self.cmd)
+         (relativepath, relativebase) = os.path.split(relativename)
+
+         filenamehash = printableHash(relativebase)
+         topdir = filenamehash[:2]
+         secdir = filenamehash[2:4]
+
+         outfilename = relativepath + "/" + topdir + "/" + secdir + "/" + relativebase + ".d/" + escape(self.cmd)
         
          p = self.computeItem(i, outfilename, options, procs)
          if p:
@@ -1699,11 +1703,7 @@ class FmJob:
 
       # If we get here, then we're locally prepared to rerun
       # Check global syncronization to see if another node already ran it
-      filenamehash = printableHash(outfilename)
-      outfilepath, outfilebase = os.path.split(outfilename)
-      topdir = filenamehash[:2]
-      secdir = filenamehash[2:4]
-      syncfilename = options.syncdir + "/" outfilepath + "/" + topdir + "/" + secdir + "/" + outfilebase + "/status"
+      syncfilename = options.syncdir + "/" outfilename + "/status"
       if not self.atomicLink(syncfilename):
             # This is a common case; somebody has already grabbed
             # the synchronization file, so we don't need to process
