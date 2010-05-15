@@ -526,18 +526,21 @@ def plot(filename, pngfile):
    canvas.print_figure(pngfile, dpi=600)
 
 
-def makeSyncPaths(paths):
+def makeSyncPaths(paths, cmd, wildcard=False):
    """ takes a list of input file paths and returns the SYNC paths """
    results = []
 
    for p in paths:
       (relativepath, relativebase) = os.path.split(p)
+      if not wildcard:
+          filenamehash = sha(relativebase).hexdigest()
+          topdir = filenamehash[:2]
+          secdir = filenamehash[2:4]
+      else:
+          topdir = "*"
+          secdir = "*"
 
-      filenamehash = sha(relativebase).hexdigest()
-      topdir = filenamehash[:2]
-      secdir = filenamehash[2:4]
-
-      outfilename = relativepath + "/" + topdir + "/" + secdir + "/" + relativebase + ".d/" + escape(self.cmd)
+      outfilename = relativepath + "/" + topdir + "/" + secdir + "/" + relativebase + ".d/" + escape(cmd)
       results.append(outfilename)
    return results
       
@@ -1657,7 +1660,7 @@ class FmJob:
             continue
 
          relativename = i[len(options.rootdir):]
-         outfilename = makeSyncPaths([relativename])[0]
+         outfilename = makeSyncPaths([relativename], self.cmd)[0]
         
          p = self.computeItem(i, outfilename, options, procs)
          if p:
@@ -2476,7 +2479,7 @@ Remove empty file or directory.  Normal rm flags are passed through; -f is impli
             syncfiles = ["%(SYNCDIR)/reduce/" + h + "/*"]
          else:
             #syncfiles = ["%(SYNCDIR)/" + g + ".d/" + escape(cmd) + "/status" for g in inglobs] 
-            syncfiles = [options.syncdir + "/" + p + "/status" for p in makeSyncPaths(inglobs)] 
+            syncfiles = ["%(SYNCDIR)/" + p + "/status" for p in makeSyncPaths(inglobs, cmd, wildcard=True)] 
 
          # Delete sync files so that computation is forced to (re-)execute
          # These files are shared, so we pick a minimum number of nodes to do this on
