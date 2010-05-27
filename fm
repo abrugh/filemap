@@ -255,9 +255,11 @@ def tallyStats(statlist, starttime, wallclock, nodecount):
             for (start,end) in intervals:
                if end < starttime:
                   cacheduration += (end-start)
-
-            rate = bytes[1]/MB/cacheduration
-            scaling = swtime/cacheduration
+            rate = 0
+            scaling = 0
+            if cacheduration:
+                rate = bytes[1]/MB/cacheduration
+                scaling = swtime/cacheduration
             print >>sys.stderr, "Cached: %g MB/s, %gs, %.1fx" % (rate, cacheduration, scaling)
 
          if True or sbytes and wallclock:
@@ -534,13 +536,11 @@ def makeSyncPaths(paths, cmd, wildcard=False):
       (relativepath, relativebase) = os.path.split(p)
       if not wildcard:
           filenamehash = sha(relativebase).hexdigest()
-          topdir = filenamehash[:2]
-          secdir = filenamehash[2:4]
+          topdir = "results_"+filenamehash[:3]+".d"
       else:
-          topdir = "*"
-          secdir = "*"
+          topdir = "results_*.d"
 
-      outfilename = relativepath + "/" + topdir + "/" + secdir + "/" + relativebase + ".d/" + escape(cmd)
+      outfilename = relativepath + "/" + topdir + "/" + relativebase + ".d/" + escape(cmd)
       results.append(outfilename)
    return results
       
@@ -2327,7 +2327,7 @@ and the program re-run.
       keys = ls.keys()
       keys.sort()
 
-      if not sys.stdout.isatty():
+      if not sys.stdout.isatty() and not options.long:
          for i in keys:
             print i
       elif not options.long:
@@ -2469,7 +2469,7 @@ Remove empty file or directory.  Normal rm flags are passed through; -f is impli
          newinglobs = ["/reduce/" + h + "/*"]
          outglobs += newinglobs
       else:
-         newinglobs = [i + ".d/" + escape(cmd) for i in inglobs]
+         newinglobs = makeSyncPaths(inglobs, cmd, wildcard=True)
          outglobs += newinglobs
 
       if options.fresh:
