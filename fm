@@ -15,8 +15,8 @@
 # or assumes any liability or responsibility for the use of this
 # software.
 #
-# Author: Mike Fisk <mfisk@lanl.gov>
-# Other Guy: Alex Brugh <abrugh@lanl.gov>
+# Authors: Mike Fisk <mfisk@lanl.gov>
+#        : Alex Brugh <abrugh@lanl.gov>
 #
 
 import ConfigParser
@@ -1096,8 +1096,8 @@ class FmLocations:
                 cmd = loc.rsynccmd + includes
                 cmd += [rsyncflags, "--prune-empty-dirs", "--copy-unsafe-links", 
                        "-e", loc.sshcmdstr] + shat + [dst]
-                if Verbose > 2:
-                    print >> sys.stderr, "rsync command = ", cmd
+                #if Verbose > 2:
+                #    print >> sys.stderr, "rsync command = ", cmd
                 procs.Popen(cmd, queue=loc.qname, tag="get %s" % (string.join(shat + [dst])))
 
         procs.collect()
@@ -1636,6 +1636,7 @@ class JobScheduler:
                 traceback.print_exc()
                 print >>sys.stderr, "Error parsing job description", \
                                     j, "; skipping"
+        #print >> sys.stderr, "ReadJobDir: self.jobs = ", [self.jobs[x] for x in self.jobs]
 
     def RunOnce(self):
         """Try to launch a work item and return True on success 
@@ -1690,6 +1691,7 @@ class JobScheduler:
         while True:
             if self.freethreads:
                 self.ReadJobDir()
+                #print >> sys.stderr, "RunUntilDone: self.procs.isempty()", self.procs.isempty(), "len(self.jobs)", len(self.jobs)
                 if self.procs.isempty() and not len(self.jobs):
                 # Doing nothing and no more jobs to run
                     return didSomething
@@ -1726,6 +1728,7 @@ class JobScheduler:
                     time.sleep(sleep)
 
     def finalizeItem(self, p):
+        #print >> sys.stderr, "finalizeItem called with,", p.outdirname, p.outbasename
         stats = {}
         stats['status'] = p.status
         stats['time'] = p.time
@@ -1738,7 +1741,16 @@ class JobScheduler:
         #stats['schedpid'] = os.getpid()
         stats['timestamp'] = time.time()
 
-        f = file(p.outdirname + "/." + p.outbasename + "/.status", "w")
+        fuckedpath = p.outdirname + "/." + p.outbasename 
+        try:
+            f = file(fuckedpath + "/.status", "w")
+        except IOError:
+            try:
+                fuckedpath = p.outdirname + "/" + p.outbasename 
+                f = file(fuckedpath + "/.status", "w")
+            except IOError:
+                print >> sys.stderr, "WHAT THE FUCK IS GOING ON?!?!?!!!?"
+                raise
         cPickle.dump(stats, f)
         f.close()
 
@@ -1748,9 +1760,14 @@ class JobScheduler:
             # By removing this dst, we're invalidating any previously derived 
             # data, but our redo-if-newer-than logic will handle the compute.
 
-        print >> sys.stderr, "about to remove", p.outdirname , "/." , \
+        print >> sys.stderr, "about to rename", p.outdirname , "/." + \
                               p.outbasename, "on pid", os.getpid()
-        os.rename(p.outdirname + "/." + p.outbasename, dst)
+        try:
+            os.rename(p.outdirname + "/." + p.outbasename, dst)
+        except OSError:
+            if Verbose > 1:
+                print >> sys.stderr, "fuck this insanity"
+
         p.job.running -= 1
 
 class CpuProfile:
@@ -1843,7 +1860,7 @@ class FmJob:
             putargs = "argv" # default, implies one of: |>, |<, |<> were usesed
 
             if "stdin" in self.reduce:
-                putargs = "stdin" # implies one of: |>., |<., |<.> were used
+                putargs = "stdin" # implies one of: |>., |<., |<.> was used
 
             for part in parts:
                 # Don't process .d directories as named inputs (feedback loop)
@@ -1874,14 +1891,16 @@ class FmJob:
                                      procs, putargs=putargs)
                 if p:
                     #print >>sys.stderr, "Reduce part", part, "on node", \
-                    #      Locations.thisname, files, "of", self.inputs
+                    #                    Locations.thisname, files, "of", self.inputs
                     return p
 
             return None # Nothing to do
 
+        self.cachedinputs.sort()
+        #print >> sys.stderr, "CACHEDINPUTS=", self.cachedinputs
         while self.cachedinputs:
             i = self.cachedinputs.pop()
-
+            #print >> sys.stderr, "cached input i =", i
             if i[-2:] == ".d":
                 # Don't process .d directories as named inputs (feedback loop)
                 continue
@@ -2015,6 +2034,7 @@ class FmJob:
             if putargs == "argv":
                 p = procs.Popen(cmd, stdout=sout, stderr=serr, cwd=obase)
             if putargs == "stdin":
+                print >> sys.stderr, "stdinstr =", newinputs
                 p = procs.Popen(cmd, stdinstr=newinputs, stdout=sout, 
                                 stderr=serr, cwd=obase)
         except:
@@ -2025,8 +2045,8 @@ class FmJob:
         assert(p)
         #print >>sys.stderr, "JOB RUNNING", self.jobname, p, procs.pids
         p.inputsize = 0
-        if Verbose > 2:
-            print >> sys.stderr, "inputs = ", inputs
+        #if Verbose > 2:
+        #    print >> sys.stderr, "inputs = ", inputs
         for i in inputs:
                 p.inputsize += os.path.getsize(i)
         p.outdirname = odirname
@@ -2350,11 +2370,11 @@ class FmCommands(CommandSetBase):
             if unit[0] == "<.":
                 unit[0] = "__allstdin__"
                 idx = cmds.index(unit)
-                cmds.insert(idx, ["__redistribute__"])
+                cmds.insert(idx+1, ["__redistribute__"])
             if unit[0] == "<":
                 idx = cmds.index(unit)
                 unit[0] = "__allargv__"
-                cmds.insert(idx, ["__redistribute__"])
+                cmds.insert(idx+1, ["__redistribute__"])
             if unit[0] == "<.>":
                 idx = cmds.index(unit)
                 cmds.insert(idx+1, copy.copy(unit))
@@ -2461,8 +2481,8 @@ class FmCommands(CommandSetBase):
             else:
                 outputglobs = inglobs
             loc = tempfile.mkdtemp(prefix="tmp-fm-status-")
-            if Verbose > 2:
-                print >> sys.stderr, "about to self.get output globs + errglobs, + [loc]",outputglobs , errglobs , [loc]
+            #if Verbose > 2:
+            #    print >> sys.stderr, "about to self.get output globs + errglobs, + [loc]",outputglobs , errglobs , [loc]
             self.get(outputglobs + errglobs + [loc], relative=True)
 
             for (dirpath, dirnames, filenames) in os.walk(loc):
